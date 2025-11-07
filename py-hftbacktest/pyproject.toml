@@ -43,6 +43,10 @@ Repository = "https://github.com/nkaz001/hftbacktest"
 
 [project.optional-dependencies]
 databento = ["databento"]
+# The 'live' extra requires building with the Rust 'live' feature enabled.
+# Build with: maturin develop --features live (or maturin build --release --features live)
+# Requires Iceoryx2 system dependencies (Linux 4.19+ or macOS 10.15+)
+live = []
 
 [tool.maturin]
 include = [{ path = "rust-toolchain.toml", format = "sdist" }]
