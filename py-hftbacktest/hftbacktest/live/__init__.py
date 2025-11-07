@@ -11,6 +11,7 @@ try:
         EventType,
         Side
     )
+    from .stub import StubConnectorBot
     
     __all__ = [
         'LiveClient',
@@ -24,6 +25,7 @@ try:
         'ConnectionHealth',
         'EventType',
         'Side',
+        'StubConnectorBot',
     ]
     
 except ImportError as e:
@@ -34,4 +36,9 @@ except ImportError as e:
         ImportWarning
     )
     
-    __all__ = []
+    # Still try to import stub since it doesn't require live feature
+    try:
+        from .stub import StubConnectorBot
+        __all__ = ['StubConnectorBot']
+    except ImportError:
+        __all__ = []

@@ -2,6 +2,12 @@
 
 High-level Python wrapper for live trading with HftBacktest.
 
+## Quick Links
+
+- **Example:** See `examples/python_live_connector.py` for a complete working example
+- **Testing without connector:** Use `StubConnectorBot` from `hftbacktest.live` for CI/CD and development
+- **Full setup guide:** See `docs/python_connector_setup.md`
+
 ## Installation
 
 The live feature requires building the extension with the `live` Rust feature enabled:
@@ -234,3 +240,53 @@ try:
 finally:
     client.close()
 ```
+
+## Testing Without a Connector
+
+For development, testing, and CI/CD environments, use the `StubConnectorBot` which provides a mock connector without requiring Iceoryx2 IPC:
+
+```python
+from hftbacktest.live import LiveClient, StubConnectorBot
+
+# Create a stub bot for testing
+bot = StubConnectorBot(base_price=50000.0, seed=42)
+
+with LiveClient(bot) as client:
+    # Your trading logic here
+    trade = client.get_trade_nowait()
+    if trade:
+        print(f"Trade: {trade.price}")
+```
+
+### StubConnectorBot Features
+
+- **No Iceoryx2 required** - Works on any system with Python
+- **Synthetic market data** - Generates realistic trades and depth updates
+- **Configurable volatility** - Adjust price movement and spread dynamics
+- **Deterministic with seed** - Reproducible test data
+- **Order simulation** - Accepts, tracks, and simulates order fills
+- **Latency simulation** - Realistic feed and order latencies
+
+### Example: Unit Testing Your Strategy
+
+```python
+import unittest
+from hftbacktest.live import LiveClient, StubConnectorBot
+
+class TestMyStrategy(unittest.TestCase):
+    def test_strategy_with_stub(self):
+        bot = StubConnectorBot(seed=42)  # Reproducible
+        
+        with LiveClient(bot) as client:
+            trades_collected = 0
+            while trades_collected < 100:
+                trade = client.get_trade_nowait()
+                if trade:
+                    trades_collected += 1
+                    # Test your logic
+                    assert trade.price > 0
+        
+        self.assertGreater(trades_collected, 0)
+```
+
+See `examples/python_live_connector.py` for a complete example.
