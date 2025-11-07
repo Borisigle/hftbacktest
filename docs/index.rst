@@ -303,18 +303,19 @@ Please see the `roadmap <https://github.com/nkaz001/hftbacktest/blob/master/ROAD
    tutorials/examples
 
 .. toctree::
-   :maxdepth: 2
-   :caption: User Guide
-   :hidden:
+    :maxdepth: 2
+    :caption: User Guide
+    :hidden:
 
-   Migration To v2 <migration2>
-   Data <data>
-   Latency Models <latency_models>
-   Order Fill <order_fill>
-   JIT Compilation Overhead <jit_compilation_overhead>
-   Debugging Backtesting and Live Discrepancies <debugging_backtesting_and_live_discrepancies>
-   Market Maker Program <market_maker_program>
-   Python Connector Setup <python_connector_setup>
+    Migration To v2 <migration2>
+    Data <data>
+    Latency Models <latency_models>
+    Order Fill <order_fill>
+    JIT Compilation Overhead <jit_compilation_overhead>
+    Debugging Backtesting and Live Discrepancies <debugging_backtesting_and_live_discrepancies>
+    Market Maker Program <market_maker_program>
+    Python Connector Setup <python_connector_setup>
+    Python Live Connector Example <python_live_connector_example>
 
 .. toctree::
    :maxdepth: 2

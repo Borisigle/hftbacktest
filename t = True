@@ -1,0 +1,31 @@
+[1mdiff --git a/py-hftbacktest/hftbacktest/live/__init__.py b/py-hftbacktest/hftbacktest/live/__init__.py[m
+[1mindex 68c690e..3402d30 100644[m
+[1m--- a/py-hftbacktest/hftbacktest/live/__init__.py[m
+[1m+++ b/py-hftbacktest/hftbacktest/live/__init__.py[m
+[36m@@ -11,6 +11,7 @@[m [mtry:[m
+         EventType,[m
+         Side[m
+     )[m
+[32m+[m[32m    from .stub import StubConnectorBot[m
+     [m
+     __all__ = [[m
+         'LiveClient',[m
+[36m@@ -24,6 +25,7 @@[m [mtry:[m
+         'ConnectionHealth',[m
+         'EventType',[m
+         'Side',[m
+[32m+[m[32m        'StubConnectorBot',[m
+     ][m
+     [m
+ except ImportError as e:[m
+[36m@@ -34,4 +36,9 @@[m [mexcept ImportError as e:[m
+         ImportWarning[m
+     )[m
+     [m
+[31m-    __all__ = [][m
+[32m+[m[32m    # Still try to import stub since it doesn't require live feature[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        from .stub import StubConnectorBot[m
+[32m+[m[32m        __all__ = ['StubConnectorBot'][m
+[32m+[m[32m    except ImportError:[m
+[32m+[m[32m        __all__ = [][m
