@@ -219,6 +219,21 @@ def ROIVectorMarketDepthBacktest(
 
 
 if LIVE_FEATURE:
+    def HashMapMarketDepthLiveBot(
+            assets: List[LiveInstrument]
+    ) -> HashMapMarketDepthLiveBot_TypeHint:
+        """
+        Constructs an instance of `HashMapMarketDepthLiveBot`.
+
+        Args:
+            assets: A list of live instruments constructed using :class:`LiveInstrument`.
+
+        Returns:
+            A jit`ed `HashMapMarketDepthLiveBot` that can be used in an ``njit`` function.
+        """
+        ptr = build_hashmap_livebot(assets)
+        return HashMapMarketDepthLiveBot_(ptr)
+
     def ROIVectorMarketDepthLiveBot(
             assets: List[LiveInstrument]
     ) -> ROIVectorMarketDepthLiveBot_TypeHint:
