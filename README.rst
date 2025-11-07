@@ -25,6 +25,9 @@ Documentation
 
 See `full document here <https://hftbacktest.readthedocs.io/>`_.
 
+**Live Trading Setup:**
+* `Python Connector Setup Guide <docs/python_connector_setup.md>`_ - Complete guide for setting up live trading with Python, including connector binaries, Iceoryx IPC, and configuration examples.
+
 Tutorials you’ll likely find interesting:
 
 * `High-Frequency Grid Trading - Simplified from GLFT <https://hftbacktest.readthedocs.io/en/latest/tutorials/High-Frequency%20Grid%20Trading%20-%20Simplified%20from%20GLFT.html>`_
