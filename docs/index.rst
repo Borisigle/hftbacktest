@@ -314,6 +314,7 @@ Please see the `roadmap <https://github.com/nkaz001/hftbacktest/blob/master/ROAD
    JIT Compilation Overhead <jit_compilation_overhead>
    Debugging Backtesting and Live Discrepancies <debugging_backtesting_and_live_discrepancies>
    Market Maker Program <market_maker_program>
+   Python Connector Setup <python_connector_setup>
 
 .. toctree::
    :maxdepth: 2
