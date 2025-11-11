@@ -105,7 +105,7 @@ impl BybitTradeHistoryFetcher {
         let mut cursor: Option<String> = None;
         let mut retries = 0;
         const MAX_RETRIES: u32 = 5;
-        const RATE_LIMIT_BACKOFF_MS: u64 = 200;
+        const RATE_LIMIT_BACKOFF_MS: u64 = 50;
 
         loop {
             let mut query_params = vec![
