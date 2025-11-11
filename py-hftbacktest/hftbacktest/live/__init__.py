@@ -12,6 +12,14 @@ try:
         Side
     )
     from .stub import StubConnectorBot
+    from .connector_runner import (
+        ConnectorRunner,
+        ConnectorConfig,
+        ConnectorRunnerError,
+        ConnectorBuildError,
+        ConnectorStartupError,
+        ConnectorNotFoundError
+    )
     
     __all__ = [
         'LiveClient',
@@ -26,6 +34,12 @@ try:
         'EventType',
         'Side',
         'StubConnectorBot',
+        'ConnectorRunner',
+        'ConnectorConfig',
+        'ConnectorRunnerError',
+        'ConnectorBuildError',
+        'ConnectorStartupError',
+        'ConnectorNotFoundError',
     ]
     
 except ImportError as e:
@@ -36,9 +50,25 @@ except ImportError as e:
         ImportWarning
     )
     
-    # Still try to import stub since it doesn't require live feature
+    # Still try to import stub and connector_runner since they don't require live feature
     try:
         from .stub import StubConnectorBot
-        __all__ = ['StubConnectorBot']
+        from .connector_runner import (
+            ConnectorRunner,
+            ConnectorConfig,
+            ConnectorRunnerError,
+            ConnectorBuildError,
+            ConnectorStartupError,
+            ConnectorNotFoundError
+        )
+        __all__ = [
+            'StubConnectorBot',
+            'ConnectorRunner',
+            'ConnectorConfig',
+            'ConnectorRunnerError',
+            'ConnectorBuildError',
+            'ConnectorStartupError',
+            'ConnectorNotFoundError',
+        ]
     except ImportError:
         __all__ = []

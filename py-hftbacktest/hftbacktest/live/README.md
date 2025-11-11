@@ -184,17 +184,44 @@ Properties:
 
 ## Connector Setup
 
-Before running your Python bot, start the connector binary:
+### Automatic (Recommended)
 
-```bash
-# Build connector
-cargo build --release --manifest-path connector/Cargo.toml --features binancefutures
+Use the `ConnectorRunner` utility to build and manage the connector lifecycle:
 
-# Start connector (name must match LiveInstrument)
-./target/release/connector binancefutures BTCUSDT config.toml
+```python
+from pathlib import Path
+from hftbacktest.live import ConnectorRunner, ConnectorConfig
+
+config = ConnectorConfig(
+    connector_name="binancefutures",  # Must match LiveInstrument.connector
+    connector_type="binancefutures",  # Exchange connector to launch
+    config_path=Path("connector/examples/binancefutures.toml")
+)
+
+with ConnectorRunner(config) as runner:
+    # Connector is running and ready for your bot
+    ...
 ```
 
-The connector handles WebSocket connections and publishes market data via Iceoryx2 shared memory.
+This:
+1. Builds the connector binary if it is missing
+2. Launches the process with your configuration
+3. Waits for Iceoryx channels to become available
+4. Listens for termination signals and shuts down cleanly
+
+### Manual Invocation
+
+If you prefer to manage the process yourself:
+
+```bash
+# Build connector (enable the exchange feature you need)
+cargo build --release --manifest-path connector/Cargo.toml --features binancefutures
+
+# Start connector (argument order: <connector_name> <connector_type> <config_path>)
+./target/release/connector binancefutures binancefutures connector/examples/binancefutures.toml
+```
+
+Make sure the `connector_name` matches the value passed to `LiveInstrument.connector(...)` when building your bot configuration. The connector handles WebSocket connections and publishes market data via Iceoryx2 shared memory.
 
 ## Error Handling
 
