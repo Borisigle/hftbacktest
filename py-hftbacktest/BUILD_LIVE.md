@@ -249,8 +249,116 @@ docker run --shm-size=2g your-image
 - Use `ROIVectorMarketDepthLiveBot` for lower memory usage with sparse books
 - Use `HashMapMarketDepthLiveBot` for faster random price level access
 
+## Connector Runner (Automated Management)
+
+For automated management of the connector binary lifecycle, use the `ConnectorRunner` utility:
+
+```python
+from pathlib import Path
+from hftbacktest.live import ConnectorRunner, ConnectorConfig
+
+# Configure the connector
+config = ConnectorConfig(
+    connector_name="binancefutures",
+    connector_type="binancefutures",
+    config_path=Path("connector/examples/binancefutures.toml")
+)
+
+# Use as context manager (automatically builds, starts, and stops)
+with ConnectorRunner(config) as runner:
+    # Connector is now running and ready
+    # Your bot code here
+    pass
+# Connector is automatically stopped
+```
+
+### ConnectorRunner Features
+
+- **Auto-build**: Builds the connector binary if missing
+- **Lifecycle management**: Handles start, stop, and graceful shutdown
+- **Health checks**: Verifies Iceoryx channels are available before proceeding
+- **Error handling**: Provides detailed error messages for startup failures
+- **Log capture**: Optionally captures stdout/stderr for debugging
+- **Signal handling**: Properly handles SIGTERM/SIGINT for clean shutdown
+
+### Manual Control
+
+```python
+from pathlib import Path
+from hftbacktest.live import ConnectorRunner, ConnectorConfig
+
+config = ConnectorConfig(
+    connector_name="binancefutures",
+    connector_type="binancefutures",
+    config_path=Path("config.toml"),
+    auto_build=True,
+    startup_timeout=10.0,
+    shutdown_timeout=5.0
+)
+
+runner = ConnectorRunner(config)
+
+# Build if necessary
+runner.build_if_missing()
+
+# Start the connector
+runner.start()
+
+# Wait for it to be ready
+if runner.wait_for_ready():
+    print("Connector is ready!")
+    # Your trading logic here
+else:
+    print("Connector failed to start")
+
+# Stop when done
+runner.stop()
+```
+
+### Configuration Options
+
+```python
+config = ConnectorConfig(
+    connector_name="binancefutures",      # Unique name (for Iceoryx channels)
+    connector_type="binancefutures",      # Type: binancefutures/binancespot/bybit
+    config_path=Path("config.toml"),      # Path to TOML config
+    project_root=Path("/path/to/repo"),   # Optional: auto-detected
+    binary_path=Path("connector"),        # Optional: defaults to target/release/connector
+    build_features=["binancefutures"],    # Optional: Cargo features
+    startup_timeout=10.0,                 # Max seconds to wait for startup
+    shutdown_timeout=5.0,                 # Max seconds to wait for shutdown
+    env={"RUST_LOG": "info"},            # Additional environment variables
+    auto_build=True,                      # Build if binary missing
+    capture_output=True                   # Capture logs
+)
+```
+
+### Error Handling
+
+```python
+from hftbacktest.live import (
+    ConnectorRunner,
+    ConnectorConfig,
+    ConnectorBuildError,
+    ConnectorStartupError,
+    ConnectorNotFoundError
+)
+
+try:
+    with ConnectorRunner(config) as runner:
+        # Trading logic
+        pass
+except ConnectorBuildError as e:
+    print(f"Build failed: {e}")
+except ConnectorStartupError as e:
+    print(f"Startup failed: {e}")
+except ConnectorNotFoundError as e:
+    print(f"Binary not found: {e}")
+```
+
 ## See Also
 
 - [Live Client README](hftbacktest/live/README.md) - High-level client usage
 - [Example Code](hftbacktest/live/example.py) - Complete examples
 - [Test Suite](tests/test_live_client.py) - Unit tests
+- [Connector Runner Tests](tests/test_connector_runner.py) - Connector runner tests

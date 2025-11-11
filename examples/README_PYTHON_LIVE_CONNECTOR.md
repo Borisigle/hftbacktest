@@ -20,7 +20,24 @@ This will:
 
 ### Running with a Real Connector
 
-To connect to a live exchange:
+#### Option 1: Automated (Recommended)
+
+Use the `ConnectorRunner` to automatically build and manage the connector:
+
+```bash
+python examples/connector_runner_example.py --duration 30
+```
+
+This automatically:
+1. Builds the connector binary if missing
+2. Launches the connector process
+3. Waits for Iceoryx channels to be ready
+4. Runs your trading bot
+5. Stops the connector cleanly on exit
+
+#### Option 2: Manual Management
+
+To connect to a live exchange manually:
 
 1. **Build the connector binary:**
    ```bash
@@ -43,7 +60,7 @@ To connect to a live exchange:
 
 4. **Start the connector:**
    ```bash
-   ./target/release/connector binancefutures BTCUSDT binancefutures.toml
+   ./target/release/connector binancefutures binancefutures binancefutures.toml
    ```
 
 5. **Run the example** (without `--stub` flag):
@@ -242,6 +259,7 @@ This is normal - the stub generates data probabilistically. Run for longer or ch
 ## Related Files
 
 - **Example Script:** `examples/python_live_connector.py`
+- **Connector Runner Example:** `examples/connector_runner_example.py`
 - **Stub Module:** `py-hftbacktest/hftbacktest/live/stub.py`
 - **Tests:** `py-hftbacktest/tests/test_python_live_connector_example.py`
 - **LiveClient API:** `py-hftbacktest/hftbacktest/live/client.py`
