@@ -56,6 +56,7 @@ use pyo3::{
 use crate::live::{HashMapMarketDepthLiveBot, ROIVectorMarketDepthLiveBot};
 
 mod backtest;
+mod bybit;
 mod depth;
 mod fuse;
 #[cfg(feature = "live")]
@@ -500,6 +501,7 @@ fn _hftbacktest(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(build_hashmap_livebot, m)?)?;
     #[cfg(feature = "live")]
     m.add_function(wrap_pyfunction!(build_roivec_livebot, m)?)?;
+    m.add_function(wrap_pyfunction!(bybit::fetch_trades, m)?)?;
     m.add_class::<BacktestAsset>()?;
     m.add_class::<LiveInstrument>()?;
     Ok(())
