@@ -10,7 +10,28 @@ use tracing::{error, warn};
 
 use crate::{error::ConnectorError, throttler::Throttler};
 
-fn handle(
+/// Extract symbol from various Binance event types
+/// Returns the symbol and event type if found
+fn extract_symbol_and_event(j_data: &serde_json::Value) -> Option<(String, String)> {
+    let obj = j_data.as_object()?;
+
+    // Get event type first
+    let ev = obj.get("e")?.as_str()?;
+
+    // Handle different event structures
+    let symbol = match ev {
+        // forceOrder has symbol nested in "o" object
+        "forceOrder" => obj.get("o")?.as_object()?.get("s")?.as_str()?,
+        // Most events have "s" at top level
+        _ => obj.get("s")?.as_str()?,
+    };
+
+    Some((symbol.to_string(), ev.to_string()))
+}
+
+/// Handle incoming WebSocket messages, routing them to appropriate files
+/// and maintaining depth snapshot bookkeeping
+pub fn handle(
     prev_u_map: &mut HashMap<String, i64>,
     writer_tx: &UnboundedSender<(DateTime<Utc>, String, String)>,
     recv_time: DateTime<Utc>,
@@ -18,61 +39,72 @@ fn handle(
     throttler: &Throttler,
 ) -> Result<(), ConnectorError> {
     let j: serde_json::Value = serde_json::from_str(data.as_str())?;
+
+    // Handle combined stream format: {"stream": "...", "data": {...}}
     if let Some(j_data) = j.get("data")
-        && let Some(j_symbol) = j_data
-            .as_object()
-            .ok_or(ConnectorError::FormatError)?
-            .get("s")
+        && let Some((symbol, ev)) = extract_symbol_and_event(j_data)
     {
-        let symbol = j_symbol.as_str().ok_or(ConnectorError::FormatError)?;
-        let ev = j_data
-            .get("e")
-            .ok_or(ConnectorError::FormatError)?
-            .as_str()
-            .ok_or(ConnectorError::FormatError)?;
+        // Handle depth update bookkeeping for resync detection
         if ev == "depthUpdate" {
-            let u = j_data
-                .get("u")
-                .ok_or(ConnectorError::FormatError)?
-                .as_i64()
-                .ok_or(ConnectorError::FormatError)?;
-            let pu = j_data
-                .get("pu")
-                .ok_or(ConnectorError::FormatError)?
-                .as_i64()
-                .ok_or(ConnectorError::FormatError)?;
-            let prev_u = prev_u_map.get(symbol);
-            if prev_u.is_none() || pu != *prev_u.unwrap() {
-                warn!(%symbol, "missing depth feed has been detected.");
-                let symbol_ = symbol.to_string();
-                let writer_tx_ = writer_tx.clone();
-                let mut throttler_ = throttler.clone();
-                tokio::spawn(async move {
-                    match throttler_.execute(fetch_depth_snapshot(&symbol_)).await {
-                        Some(Ok(data)) => {
-                            let recv_time = Utc::now();
-                            let _ = writer_tx_.send((recv_time, symbol_, data));
-                        }
-                        Some(Err(error)) => {
-                            error!(
-                                symbol = symbol_,
-                                ?error,
-                                "couldn't fetch the depth snapshot."
-                            );
-                        }
-                        None => {
-                            warn!(
-                                symbol = symbol_,
-                                "Fetching the depth snapshot is rate-limited."
-                            )
-                        }
-                    }
-                });
-            }
-            *prev_u_map.entry(symbol.to_string()).or_insert(0) = u;
+            handle_depth_update(j_data, &symbol, prev_u_map, writer_tx, throttler)?;
         }
-        let _ = writer_tx.send((recv_time, symbol.to_string(), data.to_string()));
+
+        // Forward the event to the writer with original data
+        let _ = writer_tx.send((recv_time, symbol, data.to_string()));
     }
+
+    Ok(())
+}
+
+/// Handle depth update events and trigger snapshot fetch if needed
+fn handle_depth_update(
+    j_data: &serde_json::Value,
+    symbol: &str,
+    prev_u_map: &mut HashMap<String, i64>,
+    writer_tx: &UnboundedSender<(DateTime<Utc>, String, String)>,
+    throttler: &Throttler,
+) -> Result<(), ConnectorError> {
+    let u = j_data
+        .get("u")
+        .ok_or(ConnectorError::FormatError)?
+        .as_i64()
+        .ok_or(ConnectorError::FormatError)?;
+    let pu = j_data
+        .get("pu")
+        .ok_or(ConnectorError::FormatError)?
+        .as_i64()
+        .ok_or(ConnectorError::FormatError)?;
+
+    let prev_u = prev_u_map.get(symbol);
+    if prev_u.is_none() || pu != *prev_u.unwrap() {
+        warn!(%symbol, "missing depth feed has been detected.");
+        let symbol_ = symbol.to_string();
+        let writer_tx_ = writer_tx.clone();
+        let mut throttler_ = throttler.clone();
+        tokio::spawn(async move {
+            match throttler_.execute(fetch_depth_snapshot(&symbol_)).await {
+                Some(Ok(data)) => {
+                    let recv_time = Utc::now();
+                    let _ = writer_tx_.send((recv_time, symbol_, data));
+                }
+                Some(Err(error)) => {
+                    error!(
+                        symbol = symbol_,
+                        ?error,
+                        "couldn't fetch the depth snapshot."
+                    );
+                }
+                None => {
+                    warn!(
+                        symbol = symbol_,
+                        "Fetching the depth snapshot is rate-limited."
+                    )
+                }
+            }
+        });
+    }
+    *prev_u_map.entry(symbol.to_string()).or_insert(0) = u;
+
     Ok(())
 }
 
@@ -96,4 +128,84 @@ pub async fn run_collection(
     }
     let _ = h.await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    fn make_utf8_bytes(s: &str) -> Utf8Bytes {
+        Utf8Bytes::from(s.to_string())
+    }
+
+    #[tokio::test]
+    async fn test_handle_trade_event() {
+        let mut prev_u_map = HashMap::new();
+        let (writer_tx, mut writer_rx) = unbounded_channel();
+        let throttler = Throttler::new(100);
+        let recv_time = Utc::now();
+
+        let trade_data = r#"{"stream":"btcusd_perp@trade","data":{"e":"trade","E":1234567890123,"s":"BTCUSD_PERP","t":12345,"p":"50000.00","q":"0.001","T":1234567890123,"m":true}}"#;
+
+        handle(
+            &mut prev_u_map,
+            &writer_tx,
+            recv_time,
+            make_utf8_bytes(trade_data),
+            &throttler,
+        )
+        .unwrap();
+
+        let (_, symbol, data) = writer_rx.recv().await.unwrap();
+        assert_eq!(symbol, "BTCUSD_PERP");
+        assert!(data.contains("trade"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_liquidation_event() {
+        let mut prev_u_map = HashMap::new();
+        let (writer_tx, mut writer_rx) = unbounded_channel();
+        let throttler = Throttler::new(100);
+        let recv_time = Utc::now();
+
+        let liq_data = r#"{"stream":"btcusd_perp@forceOrder","data":{"e":"forceOrder","E":1234567890123,"o":{"s":"BTCUSD_PERP","S":"SELL","o":"LIMIT","f":"IOC","q":"0.014","p":"50000.00","ap":"50010.00","X":"FILLED","l":"0.014","z":"0.014","T":1234567890123}}}"#;
+
+        handle(
+            &mut prev_u_map,
+            &writer_tx,
+            recv_time,
+            make_utf8_bytes(liq_data),
+            &throttler,
+        )
+        .unwrap();
+
+        let (_, symbol, data) = writer_rx.recv().await.unwrap();
+        assert_eq!(symbol, "BTCUSD_PERP");
+        assert!(data.contains("forceOrder"));
+    }
+
+    #[test]
+    fn test_extract_symbol_and_event_trade() {
+        let data: serde_json::Value =
+            serde_json::from_str(r#"{"e":"trade","s":"BTCUSD_PERP","t":1}"#).unwrap();
+        let result = extract_symbol_and_event(&data);
+        assert_eq!(
+            result,
+            Some(("BTCUSD_PERP".to_string(), "trade".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_extract_symbol_and_event_force_order() {
+        let data: serde_json::Value = serde_json::from_str(
+            r#"{"e":"forceOrder","E":1234,"o":{"s":"BTCUSD_PERP","S":"SELL","q":"0.01"}}"#,
+        )
+        .unwrap();
+        let result = extract_symbol_and_event(&data);
+        assert_eq!(
+            result,
+            Some(("BTCUSD_PERP".to_string(), "forceOrder".to_string()))
+        );
+    }
 }
